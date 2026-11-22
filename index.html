@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Nexora</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Only the default look's fonts load up front, and without blocking the first paint (text shows in a system font, then swaps).
+         The five optional reading fonts load when a person picks one: see ensureFont() in src/lib/appearance.js. -->
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter:wght@400;500;600;700&family=Sora:wght@600;700&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter:wght@400;500;600;700&family=Sora:wght@600;700&display=swap" /></noscript>
+    <script>
+      (function () {
+        try {
+          var id = localStorage.getItem('nexora.lastUser');
+          var v = id ? JSON.parse(localStorage.getItem('nexora.appearance:' + id) || '{}') : {};
+          var t = v.theme || 'cream';
+          var de = document.documentElement;
+          de.dataset.theme = t;
+          de.dataset.font = v.font || 'default';
+          de.dataset.size = v.size || 'normal';
+          de.dataset.mode = (t === 'ink' || t === 'midnight') ? 'dark' : 'light';
+        } catch (e) { /* default look */ }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

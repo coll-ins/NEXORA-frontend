@@ -1,0 +1,27 @@
+.a3d { position: relative; width: min(28rem, 100%); height: 22rem; margin-top: clamp(1rem, 4vh, 3rem); perspective: 80rem; pointer-events: none; }
+.a3d-stack {
+  position: absolute; left: 46%; top: 62%; width: 15rem; height: 15rem; margin: -7.5rem 0 0 -7.5rem; transform-style: preserve-3d;
+  transform: rotateX(calc(62deg - var(--py, 0) * 10deg)) rotateZ(calc(-38deg + var(--px, 0) * 16deg));
+  transition: transform .35s ease-out;
+}
+.a3d-plate {
+  position: absolute; inset: 0; border-radius: 1.5rem; border: 1px solid rgba(255, 255, 255, .8);
+  background: linear-gradient(135deg, rgba(255, 255, 255, .78), color-mix(in srgb, var(--teal) 14%, rgba(255, 255, 255, .4)));
+  box-shadow: 0 1.6rem 2.6rem -1.2rem rgba(15, 76, 71, .4); animation: a3d-float 8s ease-in-out infinite;
+}
+.a3d-ledger { transform: translateZ(0); background-image: linear-gradient(color-mix(in srgb, var(--teal) 16%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in srgb, var(--teal) 16%, transparent) 1px, transparent 1px), linear-gradient(135deg, rgba(255, 255, 255, .78), color-mix(in srgb, var(--teal) 14%, rgba(255, 255, 255, .4))); background-size: 1.9rem 1.9rem, 1.9rem 1.9rem, auto; }
+.a3d-bars { transform: translateZ(3.4rem); animation-delay: -2.6s; display: flex; align-items: flex-end; gap: .8rem; padding: 2.2rem 2rem; }
+.a3d-bars i { flex: 1; border-radius: .5rem .5rem .2rem .2rem; background: linear-gradient(180deg, var(--teal-2), var(--teal)); }
+.a3d-bars i:nth-child(1) { height: 32%; } .a3d-bars i:nth-child(2) { height: 52%; } .a3d-bars i:nth-child(3) { height: 44%; }
+.a3d-bars i:nth-child(4) { height: 70%; background: linear-gradient(180deg, var(--saffron, #f2b441), var(--terra)); } .a3d-bars i:nth-child(5) { height: 58%; }
+.a3d-ring { transform: translateZ(6.8rem); animation-delay: -5s; display: grid; place-items: center; }
+.a3d-ring b { width: 62%; aspect-ratio: 1; border-radius: 50%; background: conic-gradient(var(--teal-2) 0 68%, color-mix(in srgb, var(--teal) 14%, transparent) 0); -webkit-mask: radial-gradient(circle, transparent 56%, #000 58%); mask: radial-gradient(circle, transparent 56%, #000 58%); }
+.a3d-coin { position: absolute; left: 46%; top: 2%; width: 5.4rem; height: 5.4rem; margin-left: -2.7rem; transform-style: preserve-3d; animation: a3d-spin 12s linear infinite, a3d-bob 6s ease-in-out infinite; }
+.a3d-coin::before { content: ''; position: absolute; inset: 0; border-radius: 50%; background: linear-gradient(90deg, #8a5a1f, #f2b441, #8a5a1f); }
+.a3d-face { position: absolute; inset: 0; width: 100%; height: 100%; backface-visibility: hidden; transform: translateZ(.55rem); filter: drop-shadow(0 .9rem 1rem rgba(15, 76, 71, .3)); }
+.a3d-back { transform: rotateY(180deg) translateZ(.55rem); }
+@keyframes a3d-float { 0%, 100% { translate: 0 0 0; } 50% { translate: 0 0 .9rem; } }
+@keyframes a3d-spin { to { transform: rotateY(360deg); } }
+@keyframes a3d-bob { 0%, 100% { translate: 0 0; } 50% { translate: 0 -.6rem; } }
+@media (max-width: 64rem) { .a3d { display: none; } }
+@media (prefers-reduced-motion: reduce) { .a3d-plate, .a3d-coin { animation: none; } .a3d-coin { transform: rotateY(-18deg); } .a3d-stack { transition: none; } }

@@ -1,0 +1,88 @@
+.scene3d { position: absolute; width: min(30rem, 80vw); aspect-ratio: 1; pointer-events: none; perspective: 70rem; z-index: 0; }
+.s3-stage {
+  position: absolute; inset: 0; transform-style: preserve-3d;
+  transform: rotateX(calc(14deg - var(--py, 0) * 18deg)) rotateY(calc(var(--px, 0) * 22deg));
+  transition: transform .25s ease-out;
+}
+.s3-coin { position: absolute; inset: 27%; transform-style: preserve-3d; animation: s3-spin 11s linear infinite; }
+.s3-face { position: absolute; inset: 0; width: 100%; height: 100%; backface-visibility: hidden; transform: translateZ(1.2rem); filter: drop-shadow(0 1.4rem 1.6rem rgba(15, 76, 71, .35)); }
+.s3-back { transform: rotateY(180deg) translateZ(1.2rem); }
+/* A coin has thickness: this edge layer fills the gap between the faces. */
+.s3-coin::before { content: ''; position: absolute; inset: 0; border-radius: 50%; background: linear-gradient(90deg, #8a5a1f, #f2b441, #8a5a1f); transform: scaleZ(1); }
+.s3-ring { position: absolute; inset: 6%; border-radius: 50%; border: .35rem solid transparent; border-top-color: #f2b441; border-bottom-color: color-mix(in srgb, #0e6b5c 70%, transparent); box-shadow: 0 0 1.4rem rgba(242, 180, 65, .25); transform-style: preserve-3d; }
+.s3-ring-a { animation: s3-ring-a 14s linear infinite; }
+.s3-ring-b { inset: 0; border-width: .22rem; border-top-color: #d9663b; border-bottom-color: color-mix(in srgb, #0e6b5c 55%, transparent); animation: s3-ring-b 19s linear infinite reverse; }
+.s3-shadow { position: absolute; left: 22%; right: 22%; bottom: -2%; height: 7%; border-radius: 50%; background: radial-gradient(closest-side, rgba(15, 50, 46, .38), transparent); transform: translateZ(-4rem) rotateX(90deg); filter: blur(.4rem); }
+@keyframes s3-spin { to { transform: rotateY(360deg); } }
+@keyframes s3-ring-a { from { transform: rotateX(72deg) rotateZ(0); } to { transform: rotateX(72deg) rotateZ(360deg); } }
+@keyframes s3-ring-b { from { transform: rotateY(68deg) rotateZ(0); } to { transform: rotateY(68deg) rotateZ(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .s3-coin, .s3-ring-a, .s3-ring-b { animation: none; }
+  .s3-coin { transform: rotateY(-18deg); }
+  .s3-stage { transition: none; }
+}
+/* Where the layout stacks there is no free side for it: shrink it into the corner behind the content. */
+.scene-hero { position: relative; flex: none; width: min(32rem, 42vw); align-self: center; }
+@media (max-width: 64rem) { .scene-hero { width: 15rem; opacity: .9; } }
+/* ---------- landing sections ---------- */
+.lsec { display: grid; gap: 1rem; padding: clamp(2rem, 6vw, 5rem) 0 1rem; max-width: 70rem; }
+.lsec-h { font-size: clamp(1.9rem, 3.4vw, 3.2rem); line-height: 1.06; }
+.lsec-lead { color: var(--muted); font-size: clamp(1rem, .6vw + .85rem, 1.2rem); max-width: 52rem; }
+
+/* Side-to-side scroll reveal: --p goes 0 to 1 as the block scrolls in. */
+[data-side] {
+  --p: 1;
+  --dir: -1;
+  transform: perspective(80rem) translateX(calc((1 - var(--p)) * var(--dir) * min(18rem, 42vw))) rotateY(calc((1 - var(--p)) * var(--dir) * -32deg));
+  opacity: var(--p);
+  will-change: transform, opacity;
+}
+[data-side='right'] { --dir: 1; }
+.landing { overflow-x: clip; }
+@media (prefers-reduced-motion: reduce) { [data-side] { transform: none; opacity: 1; will-change: auto; } }
+
+/* Pinned strip: wide screens turn the scroll into a sideways slide (script sets --hp and the track's transform). */
+.hscroll.hs-on .hs-sticky { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; justify-content: center; gap: 1.2rem; padding-top: 4.5rem; overflow: hidden; }
+.hscroll.hs-on .hs-head { padding: 0; }
+.hs-view { overflow: visible; }
+.hscroll.hs-on .hs-track { display: flex; gap: 1.2rem; width: max-content; will-change: transform; padding-right: 2rem; }
+.hscroll.hs-on .step { width: min(24rem, 30vw); flex: none; }
+.hs-bar { display: none; }
+.hscroll.hs-on .hs-bar { display: block; height: 3px; border-radius: 3px; background: color-mix(in srgb, var(--teal) 14%, transparent); }
+.hs-bar i { display: block; height: 100%; width: calc(var(--hp, 0) * 100%); border-radius: 3px; background: linear-gradient(90deg, var(--teal-2), var(--terra)); }
+.hscroll:not(.hs-on) .hs-head { padding-bottom: 0; }
+
+.steps { list-style: none; margin: 1rem 0 0; padding: 0; display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); }
+.step { padding: 1.4rem; display: grid; gap: .5rem; align-content: start; }
+.step h3 { font-size: 1.35rem; }
+.step p { color: var(--muted); font-size: .98rem; line-height: 1.55; }
+.step-n { font-size: 2.4rem; line-height: 1; color: var(--terra); }
+
+.stages { list-style: none; margin: 1.2rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; position: relative; }
+.stages::before { content: ''; position: absolute; left: 12%; right: 12%; top: 1.15rem; height: 2px; background: linear-gradient(90deg, var(--teal-2), var(--saffron, #f2b441)); opacity: .6; }
+.stage { position: relative; display: grid; justify-items: center; text-align: center; gap: .25rem; font-size: .95rem; color: var(--muted); }
+.stage strong { color: var(--ink); font-size: 1.05rem; }
+.stage-dot { width: 2.3rem; height: 2.3rem; border-radius: 50%; display: grid; place-items: center; font-weight: 700; color: #fff; background: linear-gradient(180deg, var(--teal-2), var(--teal)); box-shadow: 0 .5rem 1rem -.4rem rgba(15, 76, 71, .6); }
+@media (max-width: 40rem) { .stages { grid-template-columns: 1fr 1fr; } .stages::before { display: none; } }
+
+.roles { list-style: none; margin: 1rem 0 0; padding: 0; display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); }
+.role { padding: 1.3rem; display: grid; gap: .4rem; align-content: start; }
+.role h3 { font-size: 1.25rem; color: var(--teal); }
+.role p { color: var(--muted); font-size: .97rem; line-height: 1.5; }
+
+.trust { margin-top: clamp(2rem, 5vw, 4rem); background: linear-gradient(180deg, var(--teal), #0a3531); color: #f6efe2; padding-bottom: clamp(2.5rem, 6vw, 5rem); position: relative; }
+.wave-top { position: absolute; left: 0; right: 0; top: 0; transform: translateY(-99%); height: 6rem; }
+.wave-top .wave-layer path { fill: color-mix(in srgb, var(--teal-2) 45%, transparent); }
+.wave-top .wave-2 path { fill: color-mix(in srgb, var(--teal-2) 70%, transparent); }
+.wave-top .wave-3 path { fill: color-mix(in srgb, var(--teal) 100%, transparent); }
+.trust-eyebrow { color: #e7d4a9; padding-top: clamp(2rem, 5vw, 4rem); }
+.trust-h { color: #fff; margin: .5rem 0 1.5rem; }
+.trust-grid { list-style: none; margin: 0; padding: 0; display: grid; gap: 1.2rem; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); }
+.trust-item { padding: 1.2rem 1.3rem; border: 1px solid rgba(255, 255, 255, .16); border-radius: 1.2rem; background: rgba(255, 255, 255, .06); }
+.trust-item h3 { font-size: 1.2rem; color: #f2b441; margin-bottom: .35rem; }
+.trust-item p { font-size: .97rem; line-height: 1.55; color: rgba(246, 239, 226, .86); }
+.trust-cta { display: flex; flex-wrap: wrap; gap: .8rem; margin-top: 2rem; }
+.trust .btn.ghost { background: rgba(255, 255, 255, .12); color: #fff; border-color: rgba(255, 255, 255, .3); }
+
+/* Hero scene follows the page scroll on top of the pointer tilt. */
+.landing .s3-stage { transform: rotateX(calc(14deg - var(--py, 0) * 18deg + var(--sp, 0) * 160deg)) rotateY(calc(var(--px, 0) * 22deg + var(--sp, 0) * 540deg)); }

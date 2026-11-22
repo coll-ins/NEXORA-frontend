@@ -1,0 +1,18 @@
+.wave { position: relative; height: 7rem; overflow: hidden; pointer-events: none; }
+.wave-layer { position: absolute; left: 0; bottom: 0; width: 200%; height: 100%; animation: wave-slide 22s linear infinite; }
+.wave-layer path { fill: var(--wave-1); }
+.wave-2 { animation-duration: 15s; animation-direction: reverse; height: 82%; }
+.wave-2 path { fill: var(--wave-2); }
+.wave-3 { animation-duration: 30s; height: 62%; }
+.wave-3 path { fill: var(--wave-3); }
+@keyframes wave-slide { to { transform: translateX(-50%); } }
+@keyframes wave-bob { 0%, 100% { translate: 0 0; } 50% { translate: 0 .9rem; } }
+
+/* Sign-in and register: a tall, soft sea along the bottom of the page. Slower
+   and lighter than the landing waves so the form stays the focus. */
+.wave-auth { position: absolute; left: 0; right: 0; bottom: 0; z-index: 0; height: clamp(11rem, 34vh, 20rem); }
+.wave-auth .wave-layer { opacity: .5; animation-duration: 38s, 7s; animation-name: wave-slide, wave-bob; animation-timing-function: linear, ease-in-out; animation-iteration-count: infinite, infinite; }
+.wave-auth .wave-2 { opacity: .42; animation-duration: 26s, 9s; animation-direction: reverse, normal; }
+.wave-auth .wave-3 { opacity: .6; animation-duration: 52s, 11s; }
+
+@media (prefers-reduced-motion: reduce) { .wave-layer { animation: none !important; } }

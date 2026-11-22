@@ -1,0 +1,34 @@
+/*
+ * tailwind.css: Tailwind CSS v4, wired to the NEXORA theme variables. Copy to frontend/src/styles/tailwind.css (same file for everyone).
+ * Import it AFTER nexora.css and nexora-2.css (src/dev/main.jsx and src/main.jsx do).
+ *
+ * The colours and fonts below point at CSS variables (--cream, --ink, --teal ... --font-body). The Appearance settings change those
+ * variables on <html>, so EVERY Tailwind class that uses them (bg-cream, text-ink, border-teal-2, font-serif) follows the person's
+ * chosen colour theme and font with no extra work. Never write a raw hex colour in a className.
+ *
+ * Tailwind classes you use all day:  bg-cream  bg-pop  text-ink  text-muted  text-teal  text-err  border-teal-2  font-serif  font-sans
+ * Sizes use rem by default in Tailwind (p-4 = 1rem). For fluid sizes use clamp: text-[clamp(1.5rem,3.4vw,2.2rem)]. Do NOT write bare px
+ * in arbitrary values (no w-[300px]); 1px borders (border) and shadows are fine.
+ * Breakpoints: sm 40rem (phone landscape), md 48rem (tablet), lg 64rem (sidebar appears), xl 80rem. Build phone first, then add md: and lg:.
+ */
+@import "tailwindcss";
+
+@theme inline {
+  --color-cream: var(--cream);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-teal: var(--teal);
+  --color-teal-2: var(--teal-2);
+  --color-terra: var(--terra);
+  --color-saffron: var(--saffron);
+  --color-sage: var(--sage);
+  --color-pop: var(--pop);
+  --color-err: var(--err-ink);
+  --font-sans: var(--font-body);
+  --font-serif: var(--font-head);
+}
+
+/* keep nexora.css's own base (body colour, headings); Tailwind's reset must not wipe the shared classes */
+@layer base {
+  button { cursor: pointer; }
+}
