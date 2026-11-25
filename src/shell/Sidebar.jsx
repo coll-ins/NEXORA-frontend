@@ -13,7 +13,7 @@ function go(e, navigate, to) {
 }
 
 export default function Sidebar({ path }) {
-  const { perms, role, user, navigate } = useSession();
+  const { perms, role, user, profilePhoto, navigate } = useSession();
   const items = menuFor(perms);
   const home = '/' + homeFor(perms);
 
@@ -48,7 +48,9 @@ export default function Sidebar({ path }) {
         onClick={e => go(e, navigate, '/account')}
       >
         <div className="profile-top">
-          <span className="avatar" aria-hidden="true">{user.initials}</span>
+          <span className={`avatar${profilePhoto ? ' has-photo' : ''}`} aria-hidden="true">
+            {profilePhoto ? <img className="h-full w-full rounded-full object-cover" src={profilePhoto} alt="" /> : user.initials}
+          </span>
           <div className="min-w-0">
             <div className="profile-name truncate">{user.name}</div>
             <div className="profile-meta truncate">{(ROLES[role] && ROLES[role].label) || role}</div>

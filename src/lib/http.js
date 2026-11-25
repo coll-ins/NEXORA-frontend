@@ -51,15 +51,22 @@ function refresh() {
   return refreshing;
 }
 
-async function send(method, path, { body, params, auth = true, token } = {}) {
+async function send(method, path, { body, params, auth = true, token, responseType } = {}) {
   const url = new URL(BASE + path);
   if (params) Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') url.searchParams.set(k, v); });
   const headers = { Accept: 'application/json' };
-  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  const multipart = typeof FormData !== 'undefined' && body instanceof FormData;
+  if (body !== undefined && !multipart) headers['Content-Type'] = 'application/json';
   const t = token || (auth && getTokens() && getTokens().access);
   if (t) headers.Authorization = `Bearer ${t}`;
   let res;
-  try { res = await fetch(url, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) }); }
+  try {
+    res = await fetch(url, {
+      method,
+      headers,
+      body: body === undefined ? undefined : multipart ? body : JSON.stringify(body),
+    });
+  }
   catch {
     const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
     throw new ApiError(
@@ -71,6 +78,7 @@ async function send(method, path, { body, params, auth = true, token } = {}) {
     );
   }
   if (res.status === 204) return null;
+  if (res.ok && responseType === 'blob') return res.blob();
   let json = null; try { json = await res.json(); } catch { /* no body */ }
   if (res.ok) return json;
   const err = (json && json.error) || {};
@@ -80,7 +88,7 @@ async function send(method, path, { body, params, auth = true, token } = {}) {
 async function request(method, path, opts = {}) {
   try { return await send(method, path, opts); }
   catch (e) {
-    if (e instanceof ApiError && e.status === 401 && opts.auth !== false && !opts._retried) {
+    if (e instanceof ApiError && e.status === 401 && opts.auth !== false && opts.refreshOn401 !== false && !opts._retried) {
       try { const fresh = await refresh(); return await send(method, path, { ...opts, token: fresh, _retried: true }); }
       catch (e2) { clearTokens(); endHandler(); throw e2 instanceof ApiError ? e2 : e; }
     }
@@ -95,7 +103,7 @@ function getShared(path, opts = {}) {
   if (opts.token) return request('GET', path, opts);
   const params = opts.params ? Object.entries(opts.params).filter(([, v]) => v !== undefined && v !== null && v !== '').sort() : [];
   const tokens = getTokens();
-  const key = `${tokens ? tokens.access : ''} ${path}?${JSON.stringify(params)} ${opts.auth === false}`;
+  const key = `${tokens ? tokens.access : ''} ${path}?${JSON.stringify(params)} ${opts.auth === false} ${opts.responseType || 'json'}`;
   if (inFlight.has(key)) return inFlight.get(key);
   const pending = request('GET', path, opts).finally(() => inFlight.delete(key));
   inFlight.set(key, pending);
@@ -104,6 +112,7 @@ function getShared(path, opts = {}) {
 
 export const http = {
   get: (p, o) => getShared(p, o),
+  getBlob: (p, o = {}) => request('GET', p, { ...o, responseType: 'blob' }),
   post: (p, o) => request('POST', p, o),
   patch: (p, o) => request('PATCH', p, o),
   put: (p, o) => request('PUT', p, o),

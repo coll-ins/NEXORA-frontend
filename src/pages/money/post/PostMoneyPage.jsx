@@ -1,4 +1,4 @@
-/* PostMoneyPage: an officer (savings.post) posts a deposit or a withdrawal on a member's account.
+/* PostMoneyPage: an officer (savings.post) posts a deposit or a withdrawal on a member's account. A deposit is a MANUAL entry: it needs the M-Pesa receipt code and the payer's phone.
  * One reference per submit: created when the form opens, reused on every retry, replaced only after a success. */
 import { useRef, useState } from 'react';
 import { useSession } from '../../../lib/session.jsx';
@@ -8,7 +8,7 @@ import Field from '../../../components/Field.jsx';
 import ErrorBanner from '../../../components/ErrorBanner.jsx';
 import ErrorPage from '../../../components/ErrorPage.jsx';
 import { Body } from '../common.jsx';
-import { failure, initialsOf, usePaged } from '../helpers.js';
+import { failure, initialsOf, isPhone, wirePhone, usePaged } from '../helpers.js';
 
 export default function PostMoneyPage() {
   const { saccoId, toast } = useSession();
@@ -18,6 +18,8 @@ export default function PostMoneyPage() {
   const [kind, setKind] = useState('deposit');
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
+  const [receipt, setReceipt] = useState('');
+  const [phone, setPhone] = useState('');
   const [errors, setErrors] = useState({});
   const [banner, setBanner] = useState(null);
   const [sending, setSending] = useState(false);
@@ -35,6 +37,10 @@ export default function PostMoneyPage() {
     if (!account) e.account = 'Choose a member account.';
     if (!(parseAmount(amount) > 0)) e.amount = 'Enter an amount greater than zero.';
     else if (/\.\d{3,}/.test(text)) e.amount = 'Use at most 2 decimal places.';
+    if (kind === 'deposit') {
+      if (!/^[A-Za-z0-9]{8,12}$/.test(receipt.trim())) e.receipt = 'Enter the M-Pesa receipt code, like QGH7X2K9LM.';
+      if (!isPhone(phone)) e.phone = 'Enter the payer\'s Safaricom number like 0712 345 678.';
+    }
     return e;
   }
 
@@ -42,14 +48,16 @@ export default function PostMoneyPage() {
     ev.preventDefault();
     if (busy.current) return;
     const e = validate(); setErrors(e);
-    const first = ['account', 'amount'].find(k => e[k]);
-    if (first) { const el = document.getElementById(first === 'account' ? 'pm-search' : 'pm-amount'); if (el) el.focus(); return; }
+    const first = ['account', 'amount', 'receipt', 'phone'].find(k => e[k]);
+    if (first) { const el = document.getElementById({ account: 'pm-search', amount: 'pm-amount', receipt: 'pm-receipt', phone: 'pm-phone' }[first]); if (el) el.focus(); return; }
     busy.current = true; setSending(true); setBanner(null);
     const value = parseAmount(amount);
     try {
-      await postMoney(account.account_id, kind, { amount: value, reference, note: note.trim() });
-      toast(`${kind === 'deposit' ? 'Deposit' : 'Withdrawal'} of ${kesFromMinor(Math.round(value * 100))} posted.`);
-      setAmount(''); setNote(''); setErrors({}); setReference(newReference()); accounts.refresh();
+      const done = await postMoney(account.account_id, kind, { amount: value, reference, note: note.trim(), mpesaReceipt: receipt.trim().toUpperCase(), phone: wirePhone(phone) });
+      toast(done && done.queued
+        ? `Deposit of ${kesFromMinor(Math.round(value * 100))} is flagged. It is saved and waits for a second officer.`
+        : `${kind === 'deposit' ? 'Deposit' : 'Withdrawal'} of ${kesFromMinor(Math.round(value * 100))} posted.`);
+      setAmount(''); setNote(''); setReceipt(''); setPhone(''); setErrors({}); setReference(newReference()); accounts.refresh();
     } catch (err) {
       const f = failure(err, 'Post');
       if (f.page) setBlocked(f.page);
@@ -91,12 +99,22 @@ export default function PostMoneyPage() {
           <Field id="pm-amount" label="Amount (KES)" error={errors.amount}>
             <input inputMode="decimal" autoComplete="off" placeholder="12,000" value={amount} onChange={e => { setAmount(e.target.value); if (errors.amount) setErrors(x => ({ ...x, amount: undefined })); }} />
           </Field>
+          {kind === 'deposit' && (
+            <>
+              <Field id="pm-receipt" label="M-Pesa receipt code" error={errors.receipt}>
+                <input autoComplete="off" placeholder="QGH7X2K9LM" maxLength={12} value={receipt} onChange={e => { setReceipt(e.target.value); if (errors.receipt) setErrors(x => ({ ...x, receipt: undefined })); }} />
+              </Field>
+              <Field id="pm-phone" label="Payer's phone" error={errors.phone}>
+                <input inputMode="tel" autoComplete="off" placeholder="0712 345 678" value={phone} onChange={e => { setPhone(e.target.value); if (errors.phone) setErrors(x => ({ ...x, phone: undefined })); }} />
+              </Field>
+            </>
+          )}
           <Field id="pm-note" label="Note (optional)">
             <input autoComplete="off" placeholder="Cash at the office" maxLength={200} value={note} onChange={e => setNote(e.target.value)} />
           </Field>
           {banner && <ErrorBanner kind={banner.kind}>{banner.text}</ErrorBanner>}
           <button type="submit" className="btn" disabled={sending}>{sending ? 'Posting...' : 'Post'}</button>
-          <p className="sam-note">This posts to the ledger straight away. Each entry has its own reference, so a retry never posts it twice.</p>
+          <p className="sam-note">A deposit is marked "manual" in the ledger and one M-Pesa receipt can be recorded once. A large or flagged deposit waits for a second officer. A withdrawal posts straight away unless it is flagged.</p>
         </form>
       </Body>
     </section>

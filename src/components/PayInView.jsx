@@ -7,7 +7,7 @@ export default function PayInView({ details, showDate = true }) {
     <div className="neo-stack">
       {d.mpesa_number && (
         <div>
-          <b>M-Pesa {d.mpesa_type === 'till' ? 'till (Buy Goods)' : 'paybill'}</b>
+          <b>M-Pesa {{ till: 'till (Buy Goods)', pochi: 'Pochi la Biashara' }[d.mpesa_type] || 'paybill'}</b>
           <p>Number <b>{d.mpesa_number}</b>{d.mpesa_type === 'paybill' && d.account_reference_hint ? <>, account: <b>{d.account_reference_hint}</b></> : null}</p>
           {d.display_name && <p className="muted text-sm">M-Pesa shows the name <b>{d.display_name}</b>. Stop if it shows a different name.</p>}
         </div>

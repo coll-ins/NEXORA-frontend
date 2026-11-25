@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import AppearanceCard from '../../components/AppearanceCard.jsx';
+import MyDetails from '../../components/MyDetails.jsx';
 
 export default function MySettings() {
   return (
@@ -24,6 +25,8 @@ export default function MySettings() {
       </header>
 
       <AppearanceCard />
+
+      <MyDetails />
 
       <section className="glass flex flex-col gap-3 p-6">
         <h2 className="font-serif">Account</h2>

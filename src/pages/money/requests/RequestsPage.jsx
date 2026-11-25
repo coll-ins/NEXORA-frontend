@@ -9,9 +9,11 @@ import ErrorBanner from '../../../components/ErrorBanner.jsx';
 import ErrorPage from '../../../components/ErrorPage.jsx';
 import Field from '../../../components/Field.jsx';
 import { Body, LoadMore, RequestChip } from '../common.jsx';
+import ReversalRequests from './ReversalRequests.jsx';
 import { KIND, METHOD, detailsOf, whoOf, usePaged } from '../helpers.js';
 
 const COLS = 7;
+const FLAG = { large_amount: 'Large amount', manual_over_limit: 'Manual entry over the limit', repeated_amount: 'Same amount again and again', quick_withdrawal: 'Withdrawal soon after a deposit' };
 
 /* the Decided tab is every request that is not pending; if a page is all pending rows, keep reading until there is something to show */
 async function decidedPage(saccoId, cursor) {
@@ -26,7 +28,7 @@ async function decidedPage(saccoId, cursor) {
 }
 
 export default function RequestsPage() {
-  const { saccoId, user } = useSession();
+  const { saccoId, user, can } = useSession();
   const [tab, setTab] = useState('pending');
   const [banner, setBanner] = useState(null);       // { kind, text }
   const [busyId, setBusyId] = useState(null);
@@ -51,6 +53,7 @@ export default function RequestsPage() {
     if (err.status === 0) return setBanner({ kind: 'warn', text: `We could not confirm that went through. Press ${verb} again; it will not be posted twice.` });
     if (err.code === 'REQUEST_ALREADY_DECIDED') { setBanner({ kind: 'err', text: 'Someone already decided this request.' }); refreshBoth(); return; }
     if (err.code === 'OWN_REQUEST') return setBanner({ kind: 'err', text: 'You cannot decide your own request.' });
+    if (err.code === 'SECOND_OFFICER_REQUIRED') return setBanner({ kind: 'err', text: 'A flagged payment needs a second, different officer.' });
     setBanner({ kind: 'err', text: d.text });
   }
 
@@ -59,9 +62,11 @@ export default function RequestsPage() {
     setBusyId(r.id); setBanner(null);
     refs.current[r.id] ||= newReference();
     try {
-      await confirmRequest(r.id, refs.current[r.id]);
+      const done = await confirmRequest(r.id, refs.current[r.id]);
       delete refs.current[r.id];
-      setBanner({ kind: 'ok', text: `${KIND[r.kind]} of ${kesFromMinor(r.amount_minor)} confirmed and posted to ${whoOf(r)}'s account.` });
+      setBanner(done && done.status === 'pending'
+        ? { kind: 'ok', text: `First approval recorded. A different officer must confirm this ${KIND[r.kind].toLowerCase()} of ${kesFromMinor(r.amount_minor)} before it posts.` }
+        : { kind: 'ok', text: `${KIND[r.kind]} of ${kesFromMinor(r.amount_minor)} confirmed and posted to ${whoOf(r)}'s account.` });
       refreshBoth();
     } catch (err) {
       if (err.code === 'INSUFFICIENT_FUNDS') {
@@ -111,9 +116,9 @@ export default function RequestsPage() {
                     <tr key={r.id} aria-busy={busyId === r.id}>
                       <td>{whoOf(r)}</td>
                       <td><span className={`chip ${r.kind === 'deposit' ? 'up' : 'warn'}`}>{KIND[r.kind]}</span></td>
-                      <td>{METHOD[r.method]}</td>
+                      <td>{METHOD[r.method]}{r.source === 'manual' && <span className="chip lock">Manual</span>}{r.source === 'stk' && <span className="chip">M-Pesa prompt</span>}</td>
                       <td className="sam-r">{kesFromMinor(r.amount_minor)}</td>
-                      <td>{detailsOf(r)}</td>
+                      <td>{detailsOf(r)}{r.mpesa_receipt && <span className="sam-sub">Receipt {r.mpesa_receipt}</span>}{(r.flags || []).map(f => <span key={f} className="chip warn">{FLAG[f] || f}</span>)}</td>
                       <td>{dTime(r.created_at)}</td>
                       <td>
                         {r.status !== 'pending' ? (
@@ -122,7 +127,7 @@ export default function RequestsPage() {
                           <span className="chip lock">You cannot decide your own request</span>
                         ) : (
                           <div className="sam-actions">
-                            <button type="button" className="btn small" disabled={busyId === r.id} onClick={() => confirm(r)}>{busyId === r.id && !rejecting ? 'Confirming...' : 'Confirm'}</button>
+                            <button type="button" className="btn small" disabled={busyId === r.id} onClick={() => confirm(r)}>{busyId === r.id && !rejecting ? 'Confirming...' : (r.awaiting_second_approval ? 'Give second approval' : (r.flags || []).length ? 'Give first approval' : 'Confirm')}</button>
                             <button type="button" className="btn warn small" disabled={busyId === r.id} onClick={() => setRejecting({ id: r.id, reason: '', error: '' })}>Reject</button>
                           </div>
                         )}
@@ -156,8 +161,10 @@ export default function RequestsPage() {
           <span>Confirming a request posts the real ledger entry. Rejecting needs a reason.</span>
           <span>Nobody decides their own request.</span>
           <span>A withdrawal above the member's balance cannot be confirmed.</span>
+          <span>A flagged payment needs two different officers.</span>
         </div>
       </section>
+      {can('savings.reverse') && <ReversalRequests />}
     </div>
   );
 }

@@ -55,7 +55,13 @@ export const ROUTES = [
 export const OPEN_ROUTES = ['account', 'styleguide'];
 
 export const menuFor = perms => ROUTES.filter(r => r.ok(perms));
-export const homeFor = perms => (perms.includes('platform') ? 'pf-overview' : 'overview');
+export const homeFor = perms => (
+  perms.includes('platform')
+    ? 'pf-overview'
+    : perms.includes('dashboard.view')
+      ? 'overview'
+      : 'my-settings'
+);
 /* null when allowed, otherwise the error page to show: '403' */
 export const guardRoute = (perms, path) => {
   if (OPEN_ROUTES.includes(path)) return null;

@@ -1,11 +1,12 @@
 import { useEffect, useRef } from 'react';
+import ErrorBanner from '../components/ErrorBanner.jsx';
 
 /*
  * PhotoViewer: a dialog that shows one photo large.
  * Props: photo (url or null), name (text), onClose (function), onPick (function(file)).
- * Esc and a click outside the box close it. The photo stays on this device only.
+ * Esc and a click outside the box close it. The photo is stored on the account.
  */
-export default function PhotoViewer({ photo, name, onClose, onPick }) {
+export default function PhotoViewer({ photo, name, onClose, onPick, busy = false, error = '' }) {
   const closeRef = useRef(null);
   const fileRef = useRef(null);
 
@@ -49,12 +50,13 @@ export default function PhotoViewer({ photo, name, onClose, onPick }) {
             alt={name ? 'Photo of ' + name : 'Your photo'}
           />
         ) : (
-          <p className="text-muted">No photo yet. Choose one from this device.</p>
+          <p className="text-muted">No photo yet. Choose one from this device to save it to your account.</p>
         )}
-        <p className="text-muted">The photo stays on this device only. Nobody else sees it.</p>
+        <p className="text-muted">The photo is available whenever you sign in to this account.</p>
+        {error && <ErrorBanner>{error}</ErrorBanner>}
         <div className="flex flex-wrap gap-3">
-          <button className="btn" type="button" onClick={() => fileRef.current && fileRef.current.click()}>
-            {photo ? 'Choose another photo' : 'Choose a photo'}
+          <button className="btn" type="button" disabled={busy} onClick={() => fileRef.current && fileRef.current.click()}>
+            {busy ? 'Uploading...' : photo ? 'Choose another photo' : 'Choose a photo'}
           </button>
           <button className="link-btn" type="button" ref={closeRef} onClick={onClose}>Close</button>
         </div>
@@ -62,8 +64,9 @@ export default function PhotoViewer({ photo, name, onClose, onPick }) {
           ref={fileRef}
           className="sr-only"
           type="file"
-          accept="image/*"
+          accept="image/jpeg,image/png,image/webp"
           aria-label="Choose a photo from this device"
+          disabled={busy}
           onChange={choose}
         />
       </div>

@@ -4,6 +4,7 @@ import { useAsync } from '../../lib/useAsync.js';
 import { listSaccos, createSacco, inviteFirstAdmin } from '../../api/platform.js';
 import ErrorBanner from '../../components/ErrorBanner.jsx';
 import Field from '../../components/Field.jsx';
+import Select from '../../components/Select.jsx';
 import RulesForm from '../../components/RulesForm.jsx';
 import StatusChip from '../../components/StatusChip.jsx';
 import { Body } from '../people/shared.jsx';
@@ -123,9 +124,13 @@ export default function PfSaccos() {
             <input id="sacco-new-name" value={name} onChange={e => setName(e.target.value)} disabled={busy} />
           </Field>
           <Field id="sacco-currency" label="Currency">
-            <select id="sacco-currency" value={currency} onChange={e => setCurrency(e.target.value)} disabled={busy}>
-              {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
+            <Select
+              id="sacco-currency"
+              value={currency}
+              disabled={busy}
+              onChange={setCurrency}
+              options={CURRENCIES.map(c => ({ value: c, label: c }))}
+            />
           </Field>
           <RulesForm value={rules} onChange={value => { setRules(value); setErrors(current => ({ name: current.name })); }} errors={errors} disabled={busy} />
           <div>

@@ -32,6 +32,7 @@ class Boundary extends Component {
 export default function Harness() {
   const [role, setRole] = useState('admin');
   const [suspended, setSuspended] = useState(false);
+  const [profilePhoto, setProfilePhoto] = useState(null);
   const [path, setPath] = useState(() => (location.hash.slice(1) || (PAGES[0] && PAGES[0].path) || ''));
   const [toastMsg, setToast] = useState(null);
   const openRef = useRef('');
@@ -40,12 +41,13 @@ export default function Harness() {
 
   const session = useMemo(() => ({
     user: { id: 'harness-' + role, email: me.email, name: me.name, initials: me.initials },   // one person per role, so each keeps their own look
+    profilePhoto, setProfilePhoto,
     role, perms, can: p => perms.includes(p),
     saccoId: sacco ? sacco.id : null, sacco,
     navigate: (to, opts = {}) => { openRef.current = opts.open || ''; const p = to.replace(/^\//, ''); location.hash = p; setPath(p); },
     takeOpen: kind => { const o = openRef.current; if (o.startsWith(kind + ':')) { openRef.current = ''; return o.slice(kind.length + 1); } return null; },
     toast: (text, kind) => { setToast({ text, kind }); setTimeout(() => setToast(null), 2800); }
-  }), [role, suspended]); // eslint-disable-line react-hooks/exhaustive-deps
+  }), [role, suspended, profilePhoto]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { syncAppearance(session.user.id); }, [session.user.id]);   // load THIS person's colours, font and text size
 

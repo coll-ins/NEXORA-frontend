@@ -7,7 +7,7 @@ import RulesView from '../../components/RulesView.jsx';
 import { describe } from '../../lib/errors.js';
 import { useSession } from '../../lib/session.jsx';
 import { joinPinRequest, joinRequest } from '../../api/auth.js';
-import { joinAcceptRules, joinRules } from '../../api/rules.js';
+import { joinAcceptRules, joinDeclineRules, joinRules } from '../../api/rules.js';
 
 function messageFor(error) {
   const serverMessage = String(error && error.message || '');
@@ -50,7 +50,10 @@ export default function Join() {
   const [code, setCode] = useState('');
   const [setup, setSetup] = useState(null);
   const [rules, setRules] = useState(null);
+  const [joiningSacco, setJoiningSacco] = useState(null);
   const [accepted, setAccepted] = useState(false);
+  const [declining, setDeclining] = useState(false);
+  const [reason, setReason] = useState('');
   const [pin, setPin] = useState('');
   const [repeatPin, setRepeatPin] = useState('');
   const [error, setError] = useState('');
@@ -66,10 +69,6 @@ export default function Join() {
     setPhoneError('');
     setNotice('');
     setNoticeHasEnterLink(false);
-    if (!phone.trim()) {
-      setPhoneError('Enter your phone number.');
-      return;
-    }
     if (!/^\d{6}$/.test(code)) {
       setError('Enter the 6-digit code.');
       return;
@@ -79,7 +78,9 @@ export default function Join() {
     try {
       const result = await joinRequest(phone.trim(), code);
       setSetup(result);
-      setRules(await joinRules(result.setup_token));
+      const read = await joinRules(result.setup_token);
+      setRules(read.rules);
+      setJoiningSacco(read.sacco || null);
       setAccepted(false);
       setStep(2);
       setCode('');
@@ -112,6 +113,36 @@ export default function Join() {
     try {
       await joinAcceptRules(setup.setup_token, rules.version);
       setAccepted(true);
+    } catch (failure) {
+      setError(describe(failure).text);
+    } finally {
+      setSending(false);
+    }
+  }
+
+  /* Refusing the invitation: the reason is required and goes to the officers.
+   * The join code is spent, so the invitation ends here. */
+  async function declineRules(event) {
+    event.preventDefault();
+    setError('');
+    if (!reason.trim()) {
+      setError('Say why you are declining. The SACCO\u2019s officers read your reason.');
+      return;
+    }
+    setSending(true);
+    try {
+      await joinDeclineRules(setup.setup_token, rules.version, reason.trim());
+      const named = joiningSacco ? `the invitation to ${joiningSacco.name}` : 'this invitation';
+      setDeclining(false);
+      setReason('');
+      setAccepted(false);
+      setRules(null);
+      setJoiningSacco(null);
+      setSetup(null);
+      setCode('');
+      setStep(1);
+      setNoticeHasEnterLink(false);
+      setNotice(`You declined ${named}. Your reason was sent to the SACCO\u2019s officers. An admin can invite you again if you change your mind.`);
     } catch (failure) {
       setError(describe(failure).text);
     } finally {
@@ -168,6 +199,7 @@ export default function Join() {
 
   function goBack() {
     setSetup(null);
+    setJoiningSacco(null);
     setStep(1);
     setCode('');
     setPin('');
@@ -198,15 +230,21 @@ export default function Join() {
      * starts at 1280 where both columns still have room. */
     <div className="mx-auto flex w-full max-w-[64rem] flex-col gap-8 p-4 md:p-6 xl:min-h-[calc(100vh-13rem)] xl:flex-row xl:items-center xl:justify-between xl:gap-12">
       <div className="flex w-full max-w-[26rem] shrink-0 flex-col gap-3">
-        <div className="eyebrow">Join a SACCO</div>
+        <div className="eyebrow">
+          {joiningSacco ? `Invitation to ${joiningSacco.name}` : 'Join a SACCO'}
+        </div>
         <h1 className="font-serif text-[clamp(2rem,2.4vw,3rem)] leading-[1.05]">
-          {step === 1 ? 'Join with a code' : needsRules ? 'Read the SACCO rules' : 'Set your PIN'}
+          {step === 1
+            ? 'Join with a code'
+            : needsRules
+              ? (joiningSacco ? `Read the rules of ${joiningSacco.name}` : 'Read the SACCO rules')
+              : 'Set your PIN'}
         </h1>
         <p className="text-muted">
           {step === 1
-            ? 'Use the phone number your SACCO admin added and the 6-digit code they gave you.'
+            ? 'Enter the 6-digit code from your email. If your admin added your phone number instead, enter that number too.'
             : needsRules
-              ? 'Every fee, fine and rule is below. You join only after you accept them.'
+              ? `Every fee, fine and rule ${joiningSacco ? `of ${joiningSacco.name}` : 'of the SACCO'} is below. You join only after you accept them. If you do not accept them, decline and tell the officers why.`
               : 'Choose a 4-digit PIN for this SACCO.'}
         </p>
       </div>
@@ -229,7 +267,7 @@ export default function Join() {
 
         {step === 1 ? (
           <form className="flex flex-col gap-1" noValidate onSubmit={submitCode}>
-            <Field id="join-phone" label="Phone number" error={phoneError}>
+            <Field id="join-phone" label="Phone number (only if your admin added your phone)" error={phoneError}>
               <input
                 type="tel"
                 autoComplete="tel"
@@ -238,7 +276,6 @@ export default function Join() {
                   setPhone(event.target.value);
                   setPhoneError('');
                 }}
-                required
               />
             </Field>
             <Field id="join-code" label="6-digit join code" error={error}>
@@ -264,9 +301,52 @@ export default function Join() {
           <div className="flex flex-col gap-4">
             <RulesView rules={rules} />
             {error && <ErrorBanner>{error}</ErrorBanner>}
-            <button type="button" className="btn" disabled={sending} onClick={acceptRulesStep}>
-              {sending ? 'Saving...' : 'I have read all the rules and accept them'}
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" className="btn" disabled={sending} onClick={acceptRulesStep}>
+                {sending ? 'Saving...' : 'I have read all the rules and accept them'}
+              </button>
+              <button
+                type="button"
+                className="btn ghost"
+                disabled={sending}
+                onClick={() => {
+                  setError('');
+                  setDeclining(open => !open);
+                }}
+              >
+                {declining ? 'Keep reading the rules' : 'Decline these rules'}
+              </button>
+            </div>
+            {declining && (
+              <form className="flex flex-col gap-1" noValidate onSubmit={declineRules}>
+                <Field
+                  id="join-decline-reason"
+                  label={`Why are you declining${joiningSacco ? ` ${joiningSacco.name}` : ''}? The officers will read this.`}
+                  error={null}
+                >
+                  <textarea
+                    rows={3}
+                    maxLength={500}
+                    value={reason}
+                    onChange={event => {
+                      setReason(event.target.value);
+                      setError('');
+                    }}
+                    required
+                  />
+                </Field>
+                <button
+                  className="btn warn block"
+                  type="submit"
+                  disabled={sending || !reason.trim()}
+                >
+                  {sending ? 'Sending...' : 'Send my reason and decline'}
+                </button>
+                <p className="note">
+                  Your invitation ends here. You cannot set a PIN unless an admin invites you again.
+                </p>
+              </form>
+            )}
           </div>
         ) : (
           <form className="flex flex-col gap-1" noValidate onSubmit={submitPin}>

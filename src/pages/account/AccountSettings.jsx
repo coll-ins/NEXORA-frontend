@@ -1,14 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import ErrorBanner from '../../components/ErrorBanner.jsx';
 import Field from '../../components/Field.jsx';
 import { describe } from '../../lib/errors.js';
 import { useSession } from '../../lib/session.jsx';
 import { changePasswordRequest, logoutAllRequest } from '../../api/auth.js';
+import { saveMyPhoto } from '../../api/profile.js';
 import PhotoViewer from '../../shell/PhotoViewer.jsx';
 
 export default function AccountSettings() {
-  const { user, logout, toast } = useSession();
+  const { user, logout, toast, profilePhoto, setProfilePhoto } = useSession();
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [again, setAgain] = useState('');
@@ -16,12 +17,9 @@ export default function AccountSettings() {
   const [sending, setSending] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [leaveError, setLeaveError] = useState('');
-  const [photo, setPhoto] = useState(null);
+  const [photoError, setPhotoError] = useState('');
+  const [savingPhoto, setSavingPhoto] = useState(false);
   const [viewing, setViewing] = useState(false);
-
-  useEffect(() => () => {
-    if (photo) URL.revokeObjectURL(photo);
-  }, [photo]);
 
   async function changePassword(event) {
     event.preventDefault();
@@ -58,8 +56,26 @@ export default function AccountSettings() {
     }
   }
 
-  function pickPhoto(file) {
-    setPhoto(URL.createObjectURL(file));
+  async function pickPhoto(file) {
+    setPhotoError('');
+    if (file.size > 1_500_000) {
+      setPhotoError('Choose a photo smaller than 1.5 MB.');
+      return;
+    }
+    if (file.type && !['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      setPhotoError('Choose a JPEG, PNG or WebP photo.');
+      return;
+    }
+    setSavingPhoto(true);
+    try {
+      await saveMyPhoto(file);
+      setProfilePhoto(URL.createObjectURL(file));
+      toast('Profile photo saved to your account.');
+    } catch (failure) {
+      setPhotoError(describe(failure).text);
+    } finally {
+      setSavingPhoto(false);
+    }
   }
 
   return (
@@ -78,9 +94,9 @@ export default function AccountSettings() {
             type="button"
             onClick={() => setViewing(true)}
           >
-            {photo ? 'View photo' : 'Add a photo'}
+            {profilePhoto ? 'View photo' : 'Add a photo'}
           </button>
-          <p className="text-muted">Kept on this device only.</p>
+          <p className="text-muted">Saved to your account and available when you sign in on another device.</p>
         </div>
       </section>
 
@@ -135,10 +151,12 @@ export default function AccountSettings() {
 
       {viewing && (
         <PhotoViewer
-          photo={photo}
+          photo={profilePhoto}
           name={user ? user.name : ''}
           onClose={() => setViewing(false)}
           onPick={pickPhoto}
+          busy={savingPhoto}
+          error={photoError}
         />
       )}
     </div>

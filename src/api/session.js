@@ -2,7 +2,6 @@ import { ApiError, MOCK, clearTokens, getTokens, http, mockDelay, setTokens } fr
 import { ROLES } from '../lib/perms.js';
 import {
   RYAN_AUDIT,
-  RYAN_MOCK_PAGE_FAILURES,
   RYAN_SACCOS,
 } from '../mocks/ryan.js';
 import {
@@ -142,11 +141,17 @@ async function buildSession(user, saccos, selectedSaccoId = null, ahead = null) 
     ? null
     : accountSaccos.find(item => String(item.id) === String(saccoId)) || null;
   const fallbackRoles = isPlatform ? ['platform'] : membership ? roleKeys : [];
-  const perms = MOCK || isSuspended(sacco)
+  const loadedPerms = MOCK || isSuspended(sacco)
     ? permissionsForRoles(fallbackRoles)
     : fallbackRoles.length
       ? await loadPermissions(saccoId, fallbackRoles, ahead)
       : [];
+  // The platform pages and menu test for the word 'platform', but the API names permissions
+  // by what they allow (sacco.manage, admin.manage, ...) and never sends that word. A platform
+  // owner's session carries it, or every platform page answers 403.
+  const perms = isPlatform && !loadedPerms.includes('platform')
+    ? [...loadedPerms, 'platform']
+    : loadedPerms;
 
   return {
     user: toSessionUser(user),
@@ -161,10 +166,29 @@ async function buildSession(user, saccos, selectedSaccoId = null, ahead = null) 
   };
 }
 
+// /members/me does not carry is_platform_owner (the sign-in reply does), so a session rebuilt
+// from it (page reload, token refresh) loses the platform role of an account with no SACCO.
+// /members/me/permissions without a sacco_id answers 200 only for a platform owner and 400
+// for everyone else, so ask it when the flag is unknown and the account has no active SACCO.
+async function withPlatformOwnerFlag(user) {
+  if (user.is_platform_owner !== undefined) return user;
+  const memberships = Array.isArray(user.memberships) ? user.memberships : [];
+  if (memberships.some(item => item.status === 'active')) return user;
+  try {
+    const response = await askPermissions(null);
+    if (response && Array.isArray(response.permissions) && response.permissions.includes('platform')) {
+      return { ...user, is_platform_owner: true };
+    }
+  } catch (error) {
+    if (!(error instanceof ApiError) || error.status !== 400) throw error;
+  }
+  return user;
+}
+
 async function loadCurrentSession(user = null) {
   const userRequest = user ? Promise.resolve(user) : http.get('/members/me');
   const saccosRequest = http.get('/members/me/saccos');
-  const currentUser = await userRequest;
+  const currentUser = await withPlatformOwnerFlag(await userRequest);
   // The permissions of the SACCO the person lands in need only its id, and the account already lists it,
   // so ask for them now, side by side with the SACCO list, not after it.
   const landing = currentUser.is_platform_owner
@@ -299,23 +323,6 @@ export async function listRecentAudit(saccoId) {
     params: { page: 1, per_page: 5 },
   });
   return listFromResponse(response, 'entries');
-}
-
-export async function loadMockPlaceholderFailure(path, search) {
-  if (!MOCK || !path) return null;
-
-  const failureName = new URLSearchParams(search).get('__ryan_error');
-  const failure = RYAN_MOCK_PAGE_FAILURES[failureName];
-  if (!failure) return null;
-
-  await mockDelay(100);
-  if (failure.renderError) return { renderError: true };
-  throw new ApiError(
-    failure.status,
-    failure.code,
-    'Mock placeholder failure.',
-    failure.retryAfter,
-  );
 }
 
 export async function signOut() {

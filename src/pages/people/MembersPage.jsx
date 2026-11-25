@@ -9,7 +9,7 @@ import { initials, roleChips } from './data.js';
 import MemberProfile from './MemberProfile.jsx';
 import '../../styles/neo.css';
 
-const chipFor = status => (status === 'active' ? 'Active' : status === 'invited' ? 'Invited' : 'Inactive');
+const chipFor = status => (status === 'active' ? 'Active' : status === 'invited' ? 'Invited' : status === 'declined' ? 'Declined' : 'Inactive');
 
 export default function MembersPage() {
   const { saccoId, can, navigate } = useSession();

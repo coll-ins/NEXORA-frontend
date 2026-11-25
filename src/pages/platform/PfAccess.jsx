@@ -4,6 +4,7 @@ import { useAsync } from '../../lib/useAsync.js';
 import { listSaccos, askForAccess, myAccessRequests } from '../../api/platform.js';
 import ErrorBanner from '../../components/ErrorBanner.jsx';
 import Field from '../../components/Field.jsx';
+import Select from '../../components/Select.jsx';
 import StatusChip from '../../components/StatusChip.jsx';
 import { Body } from '../people/shared.jsx';
 import { STATUS_LABEL, when } from '../people/data.js';
@@ -54,14 +55,22 @@ export default function PfAccess() {
         {notice && <ErrorBanner kind="ok">{notice}</ErrorBanner>}
         <form className="neo-stack" onSubmit={submit}>
           <Field id="access-sacco" label="SACCO" error={errors.sacco}>
-            <select id="access-sacco" value={chosen} onChange={e => setSaccoId(e.target.value)} disabled={busy}>
-              {(saccos.data || []).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
+            <Select
+              id="access-sacco"
+              value={chosen}
+              disabled={busy}
+              onChange={setSaccoId}
+              options={(saccos.data || []).map(s => ({ value: String(s.id), label: s.name }))}
+            />
           </Field>
           <Field id="access-scope" label="What you need to read">
-            <select id="access-scope" value={scope} onChange={e => setScope(e.target.value)} disabled={busy}>
-              {SCOPES.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
+            <Select
+              id="access-scope"
+              value={scope}
+              disabled={busy}
+              onChange={setScope}
+              options={SCOPES.map(s => ({ value: s, label: s }))}
+            />
           </Field>
           <Field id="access-reason" label="Why" error={errors.reason}>
             <textarea

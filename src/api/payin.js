@@ -12,14 +12,13 @@ const mock = {
     bank_uses_shared_paybill: false, bank_paybill_number: null, bank_manual_confirm_only: false, updated_at: '2026-11-10T09:00:00+03:00',
   },
   pending: null,
-  scheduled: null,
   next: 1,
 };
 
-/* -> { details, pending, scheduled }. `scheduled` is an approved change waiting for its go-live time (24 hours after approval):
- * an officer gets its values, a member only { go_live_at }. */
+/* -> { details, pending }. `pending` is a change waiting for a second officer, with its values;
+ * a member never gets it. A second officer's approval is live as soon as it answers. */
 export async function getPayIn(saccoId) {
-  if (MOCK) { await mockDelay(80); return structuredClone({ details: mock.details, pending: mock.pending, scheduled: mock.scheduled }); }
+  if (MOCK) { await mockDelay(80); return structuredClone({ details: mock.details, pending: mock.pending }); }
   return http.get(`/saccos/${saccoId}/payment-details`);
 }
 
@@ -40,22 +39,12 @@ export async function approvePayIn(saccoId, changeId) {
     await mockDelay();
     if (!mock.pending || mock.pending.id !== changeId) throw new ApiError(409, 'conflict', 'This change was already approved or replaced by a newer one.');
     if (mock.pending.proposed_by === MY_ID) throw new ApiError(403, 'PAYIN_SAME_OFFICER', 'A different officer must approve this change. You proposed it.');
-    const now = Date.now();
-    mock.scheduled = { ...mock.pending, status: 'approved', approved_at: new Date(now).toISOString(), go_live_at: new Date(now + 24 * 3600 * 1000).toISOString() };
+    const now = new Date().toISOString();
+    /* The approval is the moment it takes effect: members see these values now. */
+    mock.details = { ...mock.pending.values, updated_at: now };
+    const done = { ...mock.pending, status: 'approved', approved_at: now, go_live_at: now };
     mock.pending = null;
-    return structuredClone(mock.scheduled);
-  }
-  return (await http.post(`/saccos/${saccoId}/payment-details/changes/${changeId}/approve`)).change;
-}
-
-/* Any one officer may stop an approved change during its 24 hours; the details members see stay as they are. */
-export async function cancelPayIn(saccoId, changeId) {
-  if (MOCK) {
-    await mockDelay();
-    if (!mock.scheduled || mock.scheduled.id !== changeId) throw new ApiError(409, 'conflict', 'Only an approved change that has not gone live yet can be cancelled.');
-    const done = { ...mock.scheduled, status: 'cancelled' };
-    mock.scheduled = null;
     return structuredClone(done);
   }
-  return (await http.post(`/saccos/${saccoId}/payment-details/changes/${changeId}/cancel`)).change;
+  return (await http.post(`/saccos/${saccoId}/payment-details/changes/${changeId}/approve`)).change;
 }

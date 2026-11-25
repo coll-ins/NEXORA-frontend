@@ -38,8 +38,10 @@ export async function listAccounts(saccoId, page = 1) {
   return { items: body.accounts.map(a => ({ account_id: a.account_id, membership_id: a.membership_id, email: a.email, balance: a.balance })), page: body.page, hasMore: body.page * body.per_page < body.total };
 }
 
-/* kind: 'deposit' | 'withdrawal'. amount in whole shillings. The same reference on a retry returns the first result. */
-export async function postMoney(accountId, kind, { amount, reference, note }) {
+/* kind: 'deposit' | 'withdrawal'. amount in whole shillings. The same reference on a retry returns the first result.
+ * A deposit is a MANUAL entry: it needs the M-Pesa receipt code and the payer's phone, and its ledger row is marked source 'manual'.
+ * A flagged deposit (large, or a manual entry over the SACCO's limit) is not posted: the answer is { queued: true, request } and a second officer confirms it in the queue. */
+export async function postMoney(accountId, kind, { amount, reference, note, mpesaReceipt, phone }) {
   if (MOCK) {
     await mockDelay();
     logRef(kind, reference);
@@ -49,33 +51,76 @@ export async function postMoney(accountId, kind, { amount, reference, note }) {
     if (!acct) throw new ApiError(404, 'not_found', 'Not found.');
     const minor = toMinor(amount);
     if (kind === 'withdrawal' && minor > acct.balance) throw new ApiError(409, 'INSUFFICIENT_FUNDS', 'Insufficient funds in savings account.');
+    if (kind === 'deposit' && minor >= 2000000) {
+      const request = { id: store.next.request++, kind, source: 'manual', amount_minor: minor, mpesa_receipt: mpesaReceipt, flags: ['manual_over_limit'], awaiting_second_approval: true, status: 'pending' };
+      return { queued: true, request };
+    }
     acct.balance += kind === 'deposit' ? minor : -minor;
-    const entry = { id: store.next.tx++, type: kind, amount: minor, reference, note: note || null, created_at: new Date().toISOString(), reverses_id: null };
+    const entry = { id: store.next.tx++, type: kind, amount: minor, reference, note: note || null, created_at: new Date().toISOString(), reverses_id: null, source: kind === 'deposit' ? 'manual' : 'standard' };
     ledgerOf(accountId).unshift(entry);
     store.refs.set('tx:' + reference, entry);
     if (lostReply()) throw lost();
     return { ...entry, replayed: false };
   }
-  return http.post(`/savings/accounts/${accountId}/${kind === 'deposit' ? 'deposits' : 'withdrawals'}`, { body: { amount: toMinor(amount), reference, note: note || undefined } });
+  const body = kind === 'deposit' ? { amount: toMinor(amount), mpesa_receipt: mpesaReceipt, phone } : { amount: toMinor(amount), reference, note: note || undefined };
+  return http.post(`/savings/accounts/${accountId}/${kind === 'deposit' ? 'deposits' : 'withdrawals'}`, { body });
 }
 
-/* POST /savings/transactions/<id>/reversals. `override` sends the reason as `override_reason`: only a SACCO admin may, and only to reverse past an open loan's cap (the server answers 409 LOAN_OVER_CAP first); the sentence for a double reverse comes from the server. */
-export async function reverseTransaction(accountId, transactionId, { reference, reason, override = false }) {
+/* POST /savings/transactions/<id>/reversals: one officer ASKS for a reversal (needs a reason); nothing is posted. A different officer approves it with approveReversal. */
+export async function requestReversal(accountId, transactionId, { reason }) {
   if (MOCK) {
     await mockDelay();
-    logRef('reversal', reference);
     const rows = ledgerOf(accountId);
     const orig = rows.find(t => t.id === transactionId);
     if (!orig) throw new ApiError(404, 'not_found', 'Not found.');
     if (rows.some(t => t.reverses_id === transactionId)) throw new ApiError(409, 'ALREADY_REVERSED', 'This entry was already reversed.');
-    const acct = accountOf(accountId);
-    const back = orig.type === 'deposit' ? 'withdrawal' : 'deposit';
-    if (back === 'withdrawal' && orig.amount > acct.balance) throw new ApiError(409, 'INSUFFICIENT_FUNDS', 'Insufficient funds in savings account.');
-    acct.balance += back === 'deposit' ? orig.amount : -orig.amount;
-    rows.unshift({ id: store.next.tx++, type: back, amount: orig.amount, reference, note: reason, created_at: new Date().toISOString(), reverses_id: transactionId });
+    const found = store.reversals.find(r => r.transaction_id === transactionId && r.status === 'pending');
+    if (found) return { ...found };
+    const row = { id: store.reversals.length + 1, transaction_id: transactionId, account_id: accountId, type: orig.type, amount: orig.amount, reason, status: 'pending', requested_by: 0, created_at: new Date().toISOString() };
+    store.reversals.unshift(row);
+    return { ...row };
+  }
+  return http.post(`/savings/transactions/${transactionId}/reversals`, { body: { reason } });
+}
+
+/* GET /savings/saccos/<id>/reversal-requests (savings.reverse) */
+export async function listReversalRequests(saccoId, status) {
+  if (MOCK) { await mockDelay(); return store.reversals.filter(r => !status || r.status === status).map(r => ({ ...r })); }
+  const body = await http.get(`/savings/saccos/${saccoId}/reversal-requests`, { params: { status } });
+  return body.items;
+}
+
+/* `override` sends the reason as `override_reason`: only a SACCO admin may, and only to reverse past an open loan's cap (the server answers 409 LOAN_OVER_CAP first). Only a DIFFERENT officer than the requester may approve (403 SECOND_OFFICER_REQUIRED). */
+export async function approveReversal(requestId, { reference, override = false, reason }) {
+  if (MOCK) {
+    await mockDelay();
+    logRef('reversal', reference);
+    const req = store.reversals.find(r => r.id === requestId);
+    if (!req) throw new ApiError(404, 'not_found', 'Not found.');
+    if (req.status !== 'pending') throw new ApiError(409, 'REQUEST_ALREADY_DECIDED', 'Someone already decided this request.');
+    if (req.requested_by === 1) throw new ApiError(403, 'SECOND_OFFICER_REQUIRED', 'A different officer must approve a reversal you asked for.');
+    const rows = ledgerOf(req.account_id);
+    const acct = accountOf(req.account_id);
+    const back = req.type === 'deposit' ? 'withdrawal' : 'deposit';
+    if (back === 'withdrawal' && req.amount > acct.balance) throw new ApiError(409, 'INSUFFICIENT_FUNDS', 'Insufficient funds in savings account.');
+    acct.balance += back === 'deposit' ? req.amount : -req.amount;
+    rows.unshift({ id: store.next.tx++, type: back, amount: req.amount, reference, note: req.reason, created_at: new Date().toISOString(), reverses_id: req.transaction_id });
+    req.status = 'approved';
     return { ok: true };
   }
-  return http.post(`/savings/transactions/${transactionId}/reversals`, { body: { reference, reason, override_reason: override ? reason : undefined } });
+  return http.post(`/savings/reversal-requests/${requestId}/approve`, { body: { reference, override_reason: override ? reason : undefined } });
+}
+
+export async function rejectReversal(requestId, reason) {
+  if (MOCK) {
+    await mockDelay();
+    const req = store.reversals.find(r => r.id === requestId);
+    if (!req) throw new ApiError(404, 'not_found', 'Not found.');
+    if (req.status !== 'pending') throw new ApiError(409, 'REQUEST_ALREADY_DECIDED', 'Someone already decided this request.');
+    Object.assign(req, { status: 'rejected', reject_reason: reason });
+    return { ...req };
+  }
+  return http.post(`/savings/reversal-requests/${requestId}/reject`, { body: { reason } });
 }
 
 /* One account, fresh (the ledger header shows its balance). */

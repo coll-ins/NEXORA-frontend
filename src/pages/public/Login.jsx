@@ -6,6 +6,7 @@ import EyeIcon from './EyeIcon.jsx';
 import ErrorBanner from '../../components/ErrorBanner.jsx';
 import ErrorPage from '../../components/ErrorPage.jsx';
 import Field from '../../components/Field.jsx';
+import Select from '../../components/Select.jsx';
 import { ROLES } from '../../lib/perms.js';
 import { useSession } from '../../lib/session.jsx';
 import { describe } from '../../lib/errors.js';
@@ -160,11 +161,12 @@ export default function Login() {
           </div>
           {MOCK && (
             <Field id="login-role" label="Test role">
-              <select value={role} onChange={event => setRole(event.target.value)}>
-                {Object.entries(ROLES).map(([key, item]) => (
-                  <option key={key} value={key}>{item.label}</option>
-                ))}
-              </select>
+              <Select
+                id="login-role"
+                value={role}
+                onChange={setRole}
+                options={Object.entries(ROLES).map(([key, item]) => ({ value: key, label: item.label }))}
+              />
             </Field>
           )}
           <button className="btn" type="submit" disabled={sending || lockedSeconds > 0}>

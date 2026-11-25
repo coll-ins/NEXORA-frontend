@@ -4,6 +4,7 @@ import { useSession } from '../../lib/session.jsx';
 import { useAsync } from '../../lib/useAsync.js';
 import { listAccess, decideAccess } from '../../api/people.js';
 import ErrorBanner from '../../components/ErrorBanner.jsx';
+import Select from '../../components/Select.jsx';
 import StatusChip from '../../components/StatusChip.jsx';
 import { Body, Confirm } from './shared.jsx';
 import { STATUS_LABEL, when } from './data.js';
@@ -43,12 +44,15 @@ export default function AccessPage() {
           <h2 className="font-serif text-xl">Access requests</h2>
           <p className="muted text-sm">A platform owner reads this SACCO's records only with your consent.</p>
         </div>
-        <label className="muted text-sm">
-          Give access for&nbsp;
-          <select value={hours} onChange={e => setHours(Number(e.target.value))}>
-            {HOURS.map(h => <option key={h} value={h}>{h} hour{h === 1 ? '' : 's'}</option>)}
-          </select>
-        </label>
+        <div className="muted flex shrink-0 items-center gap-2 whitespace-nowrap text-sm">
+          Give access for
+          <Select
+            className="w-32"
+            value={hours}
+            onChange={next => setHours(Number(next))}
+            options={HOURS.map(h => ({ value: h, label: `${h} hour${h === 1 ? '' : 's'}` }))}
+          />
+        </div>
       </div>
 
       {notice && <ErrorBanner>{notice}</ErrorBanner>}

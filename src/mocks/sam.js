@@ -73,6 +73,7 @@ export const store = {
   ledgers: {},
   loans: seedLoanRows.map(l => ({ ...l, decisions: l.decisions.map(d => ({ ...d })) })),
   refs: new Map(),
+  reversals: [],
   next: { request: 100, tx: 1000, loan: 3000 }
 };
 export const ledgerOf = id => (store.ledgers[id] ||= seedLedgerFor(id));

@@ -28,6 +28,12 @@ export async function listInvited(saccoId) {
   return listMembers(saccoId).then(rows => rows.filter(m => m.status === 'invited'));
 }
 
+/* People who read the rules and refused the invitation, with the reason they gave. */
+export async function listDeclined(saccoId) {
+  if (MOCK) { await mockDelay(); return members.filter(m => m.status === 'declined'); }
+  return listMembers(saccoId).then(rows => rows.filter(m => m.status === 'declined'));
+}
+
 export async function addMember(saccoId, { phone, role }) {
   if (MOCK) {
     await mockDelay();
@@ -43,6 +49,23 @@ export async function addMember(saccoId, { phone, role }) {
     return { id: row.id, phone: normal, role, status: 'invited', join_code: code(), expires_at: expires(15) };
   }
   return http.post(`/saccos/${saccoId}/members`, { body: { phone, role } });
+}
+
+/* Add an account that already exists, by email. The API emails the join code to that
+ * address and never returns it, so the officer sees no code. */
+export async function addMemberByEmail(saccoId, { email, role }) {
+  if (MOCK) {
+    await mockDelay();
+    const clean = String(email).trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)) throw new ApiError(400, 'validation_error', 'A valid email is required.');
+    const existing = members.find(m => m.email === clean);
+    if (existing && existing.status !== 'invited') throw new ApiError(409, 'conflict', 'That user is already a member of this SACCO.');
+    const row = existing || { id: 100 + members.length + 1, user_id: null, email: clean, phone: null, role, roles: [role], status: 'invited', created_at: new Date().toISOString() };
+    if (existing) row.role = role;
+    else members = [...members, row];
+    return { id: row.id, email: clean, role, status: 'invited', expires_at: expires(15) };
+  }
+  return http.post(`/saccos/${saccoId}/members`, { body: { email, role, invite: true } });
 }
 
 export async function updateMember(saccoId, membershipId, body) {
@@ -104,3 +127,16 @@ export async function listAudit(saccoId, { action, page = 1 } = {}) {
   }
   return http.get(`/admin/saccos/${saccoId}/audit`, { params: { action, page } });
 }
+
+/* Personal details and the member's consent (DPA 2019). Real server only: no mock twin. */
+const mine = id => `/saccos/${id}/members/me/data-consent`;
+export const getConsent = saccoId => http.get(mine(saccoId));
+export const giveConsent = (saccoId, version) => http.post(mine(saccoId), { body: { notice_version: version } });
+export const withdrawConsent = saccoId => http.post(`${mine(saccoId)}/withdraw`, { body: {} });
+export const getProfile = (saccoId, membershipId) => http.get(`/saccos/${saccoId}/members/${membershipId}/profile`);
+export const saveProfile = (saccoId, membershipId, body) => http.patch(`/saccos/${saccoId}/members/${membershipId}/profile`, { body });
+
+/* This SACCO's own Daraja credentials. The server never sends the secrets back; a 404 means the feature is off. */
+const daraja = id => `/saccos/${id}/daraja-settings`;
+export const getDarajaSettings = saccoId => http.get(daraja(saccoId)).catch(e => (e.status === 404 ? null : Promise.reject(e)));
+export const saveDarajaSettings = (saccoId, body) => http.put(daraja(saccoId), { body });

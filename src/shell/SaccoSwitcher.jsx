@@ -19,7 +19,7 @@ function statusLabel(item) {
 }
 
 export default function SaccoSwitcher({ open, onToggle, onClose, onSelect }) {
-  const { sacco, saccoId, saccos, toast, logout } = useSession();
+  const { sacco, saccoId, saccos, toast, logout, navigate } = useSession();
   const enterableSaccos = saccos.filter(item => {
     const membershipStatus = String(item.membershipStatus || '').toLowerCase();
     const saccoStatus = String(item.status || '').toLowerCase();
@@ -65,7 +65,16 @@ export default function SaccoSwitcher({ open, onToggle, onClose, onSelect }) {
     void logout();
   }
 
+  function joinAnother() {
+    onClose();
+    navigate('/join');
+  }
+
   if (!sacco || !enterableSaccos.length) return null;
+
+  // Switching is offered only to someone who belongs to more than one SACCO. Everyone
+  // keeps the way to join another SACCO with a code, and to log out.
+  const canSwitch = enterableSaccos.length > 1;
 
   return (
     <div className="switcher-wrap" ref={wrapRef}>
@@ -76,7 +85,7 @@ export default function SaccoSwitcher({ open, onToggle, onClose, onSelect }) {
         onClick={onToggle}
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label={`SACCO: ${sacco.name}. Switch SACCO`}
+        aria-label={`SACCO: ${sacco.name}. ${canSwitch ? 'Switch SACCO' : 'SACCO menu'}`}
       >
         <span className="max-w-40 truncate">{sacco.name}</span>
         <Icon name="chevron" className="size-4 shrink-0" />
@@ -86,10 +95,10 @@ export default function SaccoSwitcher({ open, onToggle, onClose, onSelect }) {
           ref={menuRef}
           className="switcher-menu glass"
           role="menu"
-          aria-label="Choose a SACCO"
+          aria-label={canSwitch ? 'Choose a SACCO' : 'SACCO menu'}
           tabIndex="-1"
         >
-          {enterableSaccos.map(item => (
+          {canSwitch && enterableSaccos.map(item => (
             <button
               key={item.id}
               type="button"
@@ -104,6 +113,10 @@ export default function SaccoSwitcher({ open, onToggle, onClose, onSelect }) {
               </span>
             </button>
           ))}
+          {canSwitch && <div className="menu-sep" role="separator" />}
+          <button type="button" role="menuitem" onClick={joinAnother}>
+            <span>Join another SACCO</span>
+          </button>
           <div className="menu-sep" role="separator" />
           <button type="button" role="menuitem" className="logout" onClick={signOutNow}>
             <span>Log out</span>

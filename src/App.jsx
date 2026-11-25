@@ -7,13 +7,14 @@ import {
   useLocation,
   useNavigate,
 } from 'react-router-dom';
+import ChatWidget from './components/ChatWidget.jsx';
 import ErrorPage from './components/ErrorPage.jsx';
 import { LogoDefs } from './components/Logo.jsx';
 import { describe } from './lib/errors.js';
 import { syncAppearance, watchAppearance } from './lib/appearance.js';
-import { can as canPermission, homeFor, ROUTES } from './lib/perms.js';
-import { useAsync } from './lib/useAsync.js';
+import { can as canPermission, homeFor, menuFor, ROUTES } from './lib/perms.js';
 import { clearTokens, onSessionEnded } from './lib/http.js';
+import { getMyPhoto } from './api/profile.js';
 import { SessionContext, useSession } from './lib/session.jsx';
 import {
   afterSignIn,
@@ -23,66 +24,58 @@ import {
   selectSacco,
   signIn,
   signOut,
-  loadMockPlaceholderFailure,
 } from './api/session.js';
 import NetBanner from './shell/NetBanner.jsx';
-import PageState from './shell/PageState.jsx';
 import RequireAuth from './shell/RequireAuth.jsx';
 import RouteTransition from './shell/RouteTransition.jsx';
 import { PAGE_IMPORTS } from './shell/pages.js';
 
-const NETWORK_STATUS_EVENT = 'nexora:network-status';
-
-function Placeholder({ title, path }) {
-  const location = useLocation();
-  const { pageKey, onErrorAction } = useSession();
-  const result = useAsync(
-    () => loadMockPlaceholderFailure(path, location.search),
-    [path, location.search, pageKey],
-  );
-
-  useEffect(() => {
-    if (
-      (result.status === 'ready' || result.status === 'empty')
-      && navigator.onLine
-    ) {
-      window.dispatchEvent(new CustomEvent(NETWORK_STATUS_EVENT, {
-        detail: { status: 200 },
-      }));
-    }
-  }, [result.status]);
-
-  if (result.status === 'ready' && result.data && result.data.renderError) {
-    throw new Error('Mock page render failure.');
-  }
-
-  if (result.status === 'error') {
-    return (
-      <PageState
-        status={result.status}
-        error={result.error}
-        reload={result.reload}
-        onAction={onErrorAction}
-      />
-    );
-  }
+function PageLoadFallback({ title, path }) {
+  const { perms, navigate, logout } = useSession();
+  const startPage = homeFor(perms);
+  const alternatives = menuFor(perms).filter(route => (
+    route.path !== path && PAGE_IMPORTS[route.path]
+  ));
 
   return (
-    <div className="glass flex min-h-[30vh] flex-col items-center justify-center gap-2 p-6 text-center">
-      <h1 className="font-serif">{title}</h1>
-      <p className="text-muted">This page is being built.</p>
-    </div>
+    <section className="glass mx-auto flex min-h-[30vh] w-full max-w-2xl flex-col items-center justify-center gap-3 p-6 text-center">
+      <h1 className="font-serif text-2xl">We could not open {title}</h1>
+      <p className="text-muted">Choose another page you can access, or return to your start page.</p>
+      {startPage !== path && (
+        <button className="btn" type="button" onClick={() => navigate('/' + startPage)}>
+          Go to your start page
+        </button>
+      )}
+      {alternatives.length > 0 && (
+        <nav className="flex flex-wrap justify-center gap-2" aria-label="Available pages">
+          {alternatives.map(route => (
+            <button
+              className="btn ghost"
+              key={route.path}
+              type="button"
+              onClick={() => navigate('/' + route.path)}
+            >
+              {route.title}
+            </button>
+          ))}
+        </nav>
+      )}
+      <button className="link-btn" type="button" onClick={() => void logout()}>
+        Sign out
+      </button>
+    </section>
   );
 }
 
 function makeLazyPage(path, title) {
   return lazy(async () => {
     const loader = PAGE_IMPORTS[path];
-    if (!loader) return { default: () => <Placeholder title={title} path={path} /> };
+    if (!loader) return { default: () => <PageLoadFallback title={title} path={path} /> };
     try {
       return await loader();
-    } catch {
-      return { default: () => <Placeholder title={title} path={path} /> };
+    } catch (error) {
+      console.error(`Failed to load the ${path} page.`, error);
+      return { default: () => <PageLoadFallback title={title} path={path} /> };
     }
   });
 }
@@ -124,6 +117,7 @@ function SessionProvider({ children }) {
   const [pageKey, setPageKey] = useState(0);
   const [restoreAttempt, setRestoreAttempt] = useState(0);
   const [enteredSaccoId, setEnteredSaccoId] = useState(null);
+  const [profilePhotoState, setProfilePhotoState] = useState(null);
   const openRef = useRef('');
   const toastTimer = useRef(null);
   const routerNavigateRef = useRef(routerNavigate);
@@ -139,12 +133,42 @@ function SessionProvider({ children }) {
       return;
     }
 
-    if (!['/', '/login', '/register', '/verify', '/forgot', '/reset', '/logout'].includes(location.pathname)) {
+    if (![
+      '/', '/login', '/register', '/verify', '/verify-email',
+      '/forgot', '/reset', '/reset-password', '/logout',
+    ].includes(location.pathname)) {
       pendingReturnToRef.current = location.pathname + location.search;
     }
   }, [location.pathname, location.search, session]);
 
   const userId = session && session.user ? session.user.id : null;
+  const profilePhoto = profilePhotoState && profilePhotoState.userId === userId
+    ? profilePhotoState.url
+    : null;
+
+  useEffect(() => {
+    let active = true;
+    if (userId == null) return () => { active = false; };
+
+    getMyPhoto()
+      .then(blob => {
+        if (!blob) return;
+        const url = URL.createObjectURL(blob);
+        if (active) setProfilePhotoState({ userId, url });
+        else URL.revokeObjectURL(url);
+      })
+      .catch(() => {}); // Account photo loading should not block the rest of the app.
+
+    return () => { active = false; };
+  }, [userId]);
+
+  useEffect(() => () => {
+    if (profilePhotoState) URL.revokeObjectURL(profilePhotoState.url);
+  }, [profilePhotoState]);
+
+  const setProfilePhoto = useCallback(url => {
+    setProfilePhotoState(url ? { userId, url } : null);
+  }, [userId]);
 
   useEffect(() => {
     if (!ready) return;
@@ -352,6 +376,8 @@ function SessionProvider({ children }) {
   ), [session]);
   const value = useMemo(() => ({
     user: session ? session.user : null,
+    profilePhoto,
+    setProfilePhoto,
     role: session ? session.role : null,
     perms: session ? session.perms : [],
     can,
@@ -374,7 +400,7 @@ function SessionProvider({ children }) {
     logout,
     sessionEnded,
     clearSessionEnded,
-  }), [session, can, navigate, switchSacco, enterSacco, completeJoin, takeOpen, toast, login, logout, sessionEnded, clearSessionEnded, panelRequest, clearPanelRequest, pageKey, retryPage, onErrorAction, enteredSaccoId]);
+  }), [session, profilePhoto, setProfilePhoto, can, navigate, switchSacco, enterSacco, completeJoin, takeOpen, toast, login, logout, sessionEnded, clearSessionEnded, panelRequest, clearPanelRequest, pageKey, retryPage, onErrorAction, enteredSaccoId]);
 
   return (
     <SessionContext.Provider value={value}>
@@ -394,6 +420,7 @@ function SessionProvider({ children }) {
       >
         {toastMessage ? toastMessage.text : ''}
       </div>
+      <ChatWidget />
     </SessionContext.Provider>
   );
 }
@@ -405,6 +432,12 @@ function AppRouter() {
     ['verify', 'Verify your email'],
     ['forgot', 'Forgot password'],
     ['reset', 'Reset password'],
+  ];
+  // Emailed links use the API's page names (see backend/app/mail.py), so the
+  // address in the mail opens the same page as the short route above.
+  const emailedRoutes = [
+    ['verify-email', 'verify', 'Verify your email'],
+    ['reset-password', 'reset', 'Reset password'],
   ];
   const protectedExtras = [
     // The API links the code to the account making the request (POST /auth/join
@@ -426,6 +459,11 @@ function AppRouter() {
 
           {publicRoutes.map(([path, title]) => {
             const Page = path === 'login' ? LoginPage : makeLazyPage(path, title);
+            return <Route key={path} path={'/' + path} element={<Page />} />;
+          })}
+
+          {emailedRoutes.map(([path, page, title]) => {
+            const Page = makeLazyPage(page, title);
             return <Route key={path} path={'/' + path} element={<Page />} />;
           })}
 

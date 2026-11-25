@@ -1,4 +1,5 @@
 import Field from './Field.jsx';
+import Select from './Select.jsx';
 
 const Hint = ({ children }) => <p className="muted text-sm">{children}</p>;
 
@@ -12,15 +13,22 @@ export default function PayInForm({ value, onChange, errors = {}, disabled = fal
       <b>M-Pesa</b>
       <p className="muted text-sm">Leave the number empty if the SACCO takes no M-Pesa payments.</p>
       <Field id="payin-type" label="M-Pesa type" error={errors.mpesa_type}>
-        <select {...input('mpesaType')}>
-          <option value="paybill">Paybill</option>
-          <option value="till">Till (Buy Goods)</option>
-        </select>
+        <Select
+          id="payin-type"
+          value={value.mpesaType}
+          disabled={disabled}
+          onChange={mpesaType => onChange({ ...value, mpesaType })}
+          options={[
+            { value: 'paybill', label: 'Paybill' },
+            { value: 'till', label: 'Till (Buy Goods)' },
+            { value: 'pochi', label: 'Pochi la Biashara (phone number, shown only)' },
+          ]}
+        />
       </Field>
-      <Field id="payin-number" label="Paybill or till number" error={errors.mpesa_number}>
-        <input {...input('mpesaNumber', { inputMode: 'numeric', placeholder: '400200', maxLength: 7 })} />
+      <Field id="payin-number" label="Paybill, till or Pochi number" error={errors.mpesa_number}>
+        <input {...input('mpesaNumber', { inputMode: 'numeric', placeholder: '400200', maxLength: 16 })} />
       </Field>
-      <Hint>5 to 7 digits, no spaces or letters. Example: 400200.</Hint>
+      <Hint>Paybill or till: 5 to 7 digits, no spaces or letters. Example: 400200. Pochi la Biashara: the Safaricom phone number. Example: 0712345678. Members are shown a Pochi number but never prompted for it.</Hint>
       <Field id="payin-name" label="Name members will see" error={errors.display_name}>
         <input {...input('displayName', { maxLength: 60, placeholder: 'Umoja SACCO Savings' })} />
       </Field>

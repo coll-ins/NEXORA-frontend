@@ -116,7 +116,9 @@ export async function resendVerificationRequest(email) {
 
 export async function joinRequest(phone, code) {
   if (!MOCK) {
-    return http.post('/auth/join', { body: { phone, code } });
+    // No phone: the code came by email and belongs to the signed-in account.
+    const given = String(phone || '').trim();
+    return http.post('/auth/join', { body: given ? { phone: given, code } : { code } });
   }
 
   await mockDelay(300);
@@ -181,6 +183,7 @@ export async function saccoLoginRequest(session, saccoId, pin) {
   if (!MOCK) {
     return http.post('/auth/sacco-login', {
       body: { sacco_id: saccoId, pin },
+      refreshOn401: false,
     });
   }
 
@@ -292,7 +295,7 @@ export async function forgotPasswordRequest(email) {
 
 export async function resetPasswordRequest(token, password) {
   if (!MOCK) {
-    return http.post('/auth/reset-password', { body: { token, password }, auth: false });
+    return http.post('/auth/reset-password', { body: { token, new_password: password }, auth: false });
   }
   await mockDelay(250);
   if (token === 'expired') {

@@ -1,5 +1,6 @@
 import Field from './Field.jsx';
 import NotEnforced from './NotEnforced.jsx';
+import Select from './Select.jsx';
 
 const Hint = ({ children }) => <p className="muted text-sm">{children}</p>;
 
@@ -18,11 +19,17 @@ export default function RulesForm({ value, onChange, errors = {}, disabled = fal
       </Field>
       <Hint>Required. Whole shillings, above 0. Example: 500.</Hint>
       <Field id="rule-frequency" label="How often members contribute" error={errors.contribution_frequency}>
-        <select {...input('frequency')}>
-          <option value="weekly">Weekly</option>
-          <option value="twice_monthly">Twice a month</option>
-          <option value="monthly">Monthly</option>
-        </select>
+        <Select
+          id="rule-frequency"
+          value={value.frequency}
+          disabled={disabled}
+          onChange={frequency => onChange({ ...value, frequency })}
+          options={[
+            { value: 'weekly', label: 'Weekly' },
+            { value: 'twice_monthly', label: 'Twice a month' },
+            { value: 'monthly', label: 'Monthly' },
+          ]}
+        />
       </Field>
 
       <Field id="rule-multiple" label="Loan cap (times a member's savings)" error={errors.loan_cap_multiple}>
@@ -39,10 +46,16 @@ export default function RulesForm({ value, onChange, errors = {}, disabled = fal
           <input {...input('periodValue', { inputMode: 'numeric', placeholder: '6' })} />
         </Field>
         <Field id="rule-period-unit" label="Unit">
-          <select {...input('periodUnit')}>
-            <option value="months">Months</option>
-            <option value="days">Days</option>
-          </select>
+          <Select
+            id="rule-period-unit"
+            value={value.periodUnit}
+            disabled={disabled}
+            onChange={periodUnit => onChange({ ...value, periodUnit })}
+            options={[
+              { value: 'months', label: 'Months' },
+              { value: 'days', label: 'Days' },
+            ]}
+          />
         </Field>
       </div>
       <Hint>Required. The longest a loan may take to repay. Example: 6 months.</Hint>

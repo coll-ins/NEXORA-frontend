@@ -224,7 +224,11 @@ html[data-mode="dark"] .btn.ghost, html[data-mode="dark"] .btn.warn, html[data-m
 html[data-mode="dark"] .row:hover, html[data-mode="dark"] .side-nav a:hover, html[data-mode="dark"] .switcher-menu button:hover, html[data-mode="dark"] .back:hover, html[data-mode="dark"] .icon-btn:hover, html[data-mode="dark"] .lnav-links button:hover { background: rgba(255, 255, 255, .12); }
 html[data-mode="dark"] .seg button[aria-selected="true"] { background: rgba(255, 255, 255, .16); color: var(--ink); }
 html[data-mode="dark"] .tip, html[data-mode="dark"] .scene .layer { background: var(--pop); color: var(--ink); }
-html[data-mode="dark"] .switcher-menu.glass, html[data-mode="dark"] .role-menu, html[data-mode="dark"] .modal-card, html[data-mode="dark"] .bell-menu, html[data-mode="dark"] .palette-card, html[data-mode="dark"] .lnav-pop { border-color: rgba(255, 255, 255, .12); }
+html[data-mode="dark"] .switcher-menu.glass, html[data-mode="dark"] .role-menu, html[data-mode="dark"] .modal-card, html[data-mode="dark"] .bell-menu, html[data-mode="dark"] .palette-card, html[data-mode="dark"] .lnav-pop, html[data-mode="dark"] .select-menu { border-color: rgba(255, 255, 255, .12); }
+html[data-mode="dark"] .select-trigger { background: rgba(255, 255, 255, .06); }
+html[data-mode="dark"] .select-menu { background: var(--pop); }
+html[data-mode="dark"] .select-option { color: var(--ink); }
+html[data-mode="dark"] .select-option:hover, html[data-mode="dark"] .select-option:focus-visible, html[data-mode="dark"] .select-option[aria-selected="true"] { background: rgba(255, 255, 255, .12); }
 html[data-mode="dark"] .spot, html[data-mode="dark"] .tilt::after { opacity: .25; }
 html[data-mode="dark"] .bell-dot, html[data-mode="dark"] .timeline > div::before { box-shadow: 0 0 0 .15rem var(--cream); }
 html[data-mode="dark"] .err-card code { background: rgba(255, 255, 255, .1); }

@@ -15,9 +15,11 @@ export function checkPayIn(v) {
   const hasBank = [v.bankName, v.bankAccountName, v.bankAccountNumber].some(x => x.trim() !== '');
   if (!hasMpesa && !hasBank) e._ = 'Give M-Pesa details, bank details or both, so members have somewhere to pay.';
   if (hasMpesa) {
-    if (!digits(v.mpesaNumber, 5, 7)) e.mpesa_number = 'Enter 5 to 7 digits, with no spaces or letters, because M-Pesa numbers are never shorter or longer. Example: 400200.';
+    if (v.mpesaType === 'pochi') {
+      if (!/^(?:\+?254|0)[17][0-9]{8}$/.test(v.mpesaNumber.replace(/[\s-]/g, ''))) e.mpesa_number = 'A Pochi la Biashara number is a Safaricom phone number. Example: 0712345678.';
+    } else if (!digits(v.mpesaNumber, 5, 7)) e.mpesa_number = 'Enter 5 to 7 digits, with no spaces or letters, because M-Pesa numbers are never shorter or longer. Example: 400200.';
     if (!v.displayName.trim()) e.display_name = 'Add the name members will see when M-Pesa shows the business name, so they can check it before paying. Example: Umoja SACCO Savings.';
-    if (v.mpesaType === 'till' && v.reference.trim()) e.account_reference_hint = 'Only a paybill has an account number. Leave this empty for a till.';
+    if (v.mpesaType !== 'paybill' && v.reference.trim()) e.account_reference_hint = 'Only a paybill has an account number. Leave this empty for a till or Pochi.';
   }
   if (v.displayName.length > 60) e.display_name = 'Keep this to 60 characters or fewer. Example: Umoja SACCO Savings.';
   if (hasBank) {

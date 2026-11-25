@@ -48,14 +48,15 @@ function HowToPay({ method, pay }) {
   const details = pay.data.details;
   if (!details) return <ErrorBanner kind="warn">Pay-in details not set. Ask an officer of your SACCO to set them. You cannot send a request until they are.</ErrorBanner>;
   const till = details.mpesa_type === 'till';
+  const pochi = details.mpesa_type === 'pochi';
   const scheduled = pay.data.scheduled;
   return (
     <>
       {scheduled && <ErrorBanner kind="info">The pay-in details are changing on {dTime(scheduled.go_live_at)}. Until then, pay to the details shown below. If you were not told about this change, ask an officer before you pay.</ErrorBanner>}
       {method === 'mpesa' ? (
         <ol className="sam-steps">
-          <li>Open M-Pesa on your phone and choose Lipa na M-Pesa, then {till ? 'Buy Goods and Services' : 'Pay Bill'}.</li>
-          <li>Enter the {till ? 'till' : 'business'} number{till ? '' : ' and the account number'} shown below, then the amount and your M-Pesa PIN.</li>
+          <li>Open M-Pesa on your phone and {pochi ? 'choose Pochi la Biashara, then Send Money.' : <>choose Lipa na M-Pesa, then {till ? 'Buy Goods and Services' : 'Pay Bill'}.</>}</li>
+          <li>Enter the {pochi ? 'phone' : till ? 'till' : 'business'} number{till || pochi ? '' : ' and the account number'} shown below, then the amount and your M-Pesa PIN.</li>
           <li>Check the name M-Pesa shows. If it is not the name below, stop and ask an officer.</li>
           <li>Come back here, enter the same amount and the phone number you paid from, then send the request.</li>
         </ol>

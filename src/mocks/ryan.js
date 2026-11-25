@@ -151,17 +151,6 @@ export const RYAN_AUDIT = [
   },
 ];
 
-export const RYAN_MOCK_PAGE_FAILURES = {
-  '0': { status: 0, code: 'offline' },
-  '401': { status: 401, code: 'unauthorized' },
-  '403': { status: 403, code: 'forbidden' },
-  '404': { status: 404, code: 'not_found' },
-  '423': { status: 423, code: 'suspended' },
-  '429': { status: 429, code: 'too_many_requests', retryAfter: 5 },
-  '500': { status: 500, code: 'server_error' },
-  render: { renderError: true },
-};
-
 export const RYAN_R5B_SCENARIOS = {
   wrongPassword: { email: 'wrong-password@example.test', password: 'wrong' },
   loginLocked: { email: 'locked-login@example.test', failedAttempts: 5 },

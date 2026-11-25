@@ -301,17 +301,19 @@ export default function Enter() {
             </button>
           </form>
         )}
-        <button
-          className="link-btn justify-self-center"
-          type="button"
-          onClick={() => {
-            setError('');
-            setDigits(['', '', '', '']);
-            setForceChooser(true);
-          }}
-        >
-          Not your SACCO? Choose another
-        </button>
+        {activeSaccos.length > 1 && (
+          <button
+            className="link-btn justify-self-center"
+            type="button"
+            onClick={() => {
+              setError('');
+              setDigits(['', '', '', '']);
+              setForceChooser(true);
+            }}
+          >
+            Not your SACCO? Choose another
+          </button>
+        )}
       </section>
     </div>
   );

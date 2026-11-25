@@ -2,7 +2,7 @@ import '../../styles/neo.css';
 import { useState } from 'react';
 import { useSession } from '../../lib/session.jsx';
 import { useAsync } from '../../lib/useAsync.js';
-import { approvePayIn, cancelPayIn, getPayIn, proposePayIn } from '../../api/payin.js';
+import { approvePayIn, getPayIn, proposePayIn } from '../../api/payin.js';
 import ErrorBanner from '../../components/ErrorBanner.jsx';
 import PayInForm from '../../components/PayInForm.jsx';
 import PayInView from '../../components/PayInView.jsx';
@@ -46,14 +46,13 @@ export default function PayInPage() {
 
   const live = payIn.data && payIn.data.details;
   const pending = payIn.data && payIn.data.pending;
-  const scheduled = payIn.data && payIn.data.scheduled;
   const mine = pending && user && pending.proposed_by === user.id;
 
   return (
     <section className="glass neo-stack loose">
       <div>
         <h2 className="font-serif text-xl">Pay-in details</h2>
-        <p className="muted text-sm">Where members pay in. A change needs a second officer's approval, then goes live 24 hours later. Members and officers are told when it is approved, so one person alone cannot quietly point members at a new account.</p>
+        <p className="muted text-sm">Where members pay in. A change needs a second officer's approval, and it takes effect the moment they approve. Officers are told when it happens, so one person alone cannot quietly point members at a new account.</p>
       </div>
       {notice && <ErrorBanner>{notice}</ErrorBanner>}
       <Body status={payIn.status} error={payIn.error} reload={payIn.reload}>
@@ -68,7 +67,7 @@ export default function PayInPage() {
               <p className="muted text-sm">You proposed this change. A different officer must approve it. Until then members still see the details above.</p>
             ) : (
               <div>
-                <button type="button" className="btn" disabled={busy} onClick={() => run(() => approvePayIn(saccoId, pending.id), 'Approved. It goes live in 24 hours')}>
+                <button type="button" className="btn" disabled={busy} onClick={() => run(() => approvePayIn(saccoId, pending.id), 'Approved. Members see these details now')}>
                   Check the numbers, then approve
                 </button>
               </div>
@@ -76,24 +75,10 @@ export default function PayInPage() {
           </div>
         )}
 
-        {scheduled && scheduled.values && (
-          <div className="neo-stack">
-            <h3 className="font-serif text-lg">Approved, going live on {dTime(scheduled.go_live_at)}</h3>
-            <PayInView details={scheduled.values} showDate={false} />
-            <p className="muted text-sm">Members keep seeing the details above until then. If this is not right, cancel it: any one officer can, and the details above stay.</p>
-            <div>
-              <button type="button" className="btn warn" disabled={busy} onClick={() => run(() => cancelPayIn(saccoId, scheduled.id), 'Change cancelled. Members still see the details above')}>
-                Cancel this change
-              </button>
-            </div>
-          </div>
-        )}
-
         {!form && <div><button type="button" className="btn ghost" onClick={() => { setErrors({}); setForm(live ? payInToForm(live) : emptyPayIn()); }}>{live ? 'Propose a change' : 'Set the pay-in details'}</button></div>}
         {form && (
           <form className="neo-stack" noValidate onSubmit={event => { event.preventDefault(); send(); }}>
             {pending && <p className="muted text-sm">Sending a new change replaces the one waiting for approval.</p>}
-            {scheduled && <p className="muted text-sm">Once approved, a new change replaces the one going live on {dTime(scheduled.go_live_at)}.</p>}
             {errors._ && <div className="field-msg" role="alert">{errors._}</div>}
             <PayInForm value={form} onChange={value => { setForm(value); setErrors({}); }} errors={errors} disabled={busy} />
             <div className="flex flex-wrap gap-2">
